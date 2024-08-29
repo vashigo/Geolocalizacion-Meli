@@ -8,4 +8,5 @@ import java.util.List;
 public interface IpQueryRepository extends MongoRepository<IpQuery, String> {
     List<IpQuery> findAllByOrderByDistanceToBuenosAiresDesc();
     List<IpQuery> findAllByOrderByDistanceToBuenosAiresAsc();
+    IpQuery findByIp(String ip);
 }
