@@ -1,6 +1,5 @@
 package com.co.mercadolibre.geolocalizacion.controller;
 
-import com.co.mercadolibre.geolocalizacion.model.IpInfoResponse;
 import com.co.mercadolibre.geolocalizacion.model.StatisticsResponse;
 import com.co.mercadolibre.geolocalizacion.service.GeolocalizationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,8 +15,8 @@ public class GeolocalizationController {
     private GeolocalizationService geolocalizationService;
 
     @GetMapping("/ipinfo")
-    public ResponseEntity<IpInfoResponse> getIpInfo(@RequestParam("ip") String ip) {
-        IpInfoResponse response = geolocalizationService.getIpInfo(ip);
+    public ResponseEntity<String> getIpInfo(@RequestParam("ip") String ip) {
+        String response = geolocalizationService.getIpInfo(ip);
         return ResponseEntity.ok(response);
     }
 
