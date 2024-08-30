@@ -4,38 +4,33 @@ import com.co.mercadolibre.geolocalizacion.model.CurrencyInfoResponse;
 import com.co.mercadolibre.geolocalizacion.model.IpInfoResponse;
 import com.co.mercadolibre.geolocalizacion.model.StatisticsResponse;
 import com.co.mercadolibre.geolocalizacion.model.TimeZoneInfoResponse;
+import com.co.mercadolibre.geolocalizacion.repository.IpQueryCustomRepository;
 import com.co.mercadolibre.geolocalizacion.repository.IpQueryRepository;
 import com.co.mercadolibre.geolocalizacion.repository.entity.IpQuery;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 public class GeolocalizationServiceImpl implements GeolocalizationService {
 
-    private static final String IP_API_URL = "https://api.ipapi.com/api/{ip}?access_key=ec89b2a04a67ea6c70da666c90764785&language=es";
-    private static final String TIMEZONE_API_URL = "https://timeapi.io/api/time/current/ip?ipAddress={ip}";
-    private static final String CURRENCY_API_URL = "https://ipapi.co/{ip}/json/";
     private static final String DATE_FORMAT = "dd/MM/yyyy HH:mm:ss";
-    private static final String CURRENCY_API_FORMAT = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@%s/v1/currencies/%s.json";
     private static final double BUENOS_AIRES_LAT = -34.603722;
     private static final double BUENOS_AIRES_LON = -58.381592;
     private static final double EARTH_RADIUS_KM = 6371;
 
-    private final RestTemplate restTemplate;
+    private final GeolocalizationApiCallCacheService geolocalizationApiCallCacheService;
     private final IpQueryRepository ipQueryRepository;
+    private final IpQueryCustomRepository ipQueryCustomRepository;
 
-    public GeolocalizationServiceImpl(RestTemplate restTemplate, IpQueryRepository ipQueryRepository) {
-        this.restTemplate = restTemplate;
+    public GeolocalizationServiceImpl(GeolocalizationApiCallCacheService geolocalizationApiCallCacheService, IpQueryRepository ipQueryRepository, IpQueryCustomRepository ipQueryCustomRepository) {
+        this.geolocalizationApiCallCacheService = geolocalizationApiCallCacheService;
         this.ipQueryRepository = ipQueryRepository;
+        this.ipQueryCustomRepository = ipQueryCustomRepository;
     }
 
     /**
@@ -45,15 +40,14 @@ public class GeolocalizationServiceImpl implements GeolocalizationService {
      * @return a formatted string containing the geolocation, timezone, and currency information.
      */
     @Override
-    @Cacheable(value = "ipInfoStringCache", key = "#ip")
     public String getIpInfo(String ip) {
-        IpInfoResponse ipInfoResponse = fetchIpInfo(ip);
-        TimeZoneInfoResponse timeZoneResponse = fetchTimeZoneInfo(ip);
-        CurrencyInfoResponse currencyInfoResponse = fetchCurrencyInfo(ip);
+        IpInfoResponse ipInfoResponse = geolocalizationApiCallCacheService.fetchIpInfo(ip);
+        TimeZoneInfoResponse timeZoneResponse = geolocalizationApiCallCacheService.fetchTimeZoneInfo(ip);
+        CurrencyInfoResponse currencyInfoResponse = geolocalizationApiCallCacheService.fetchCurrencyInfo(ip);
 
         double distanceToBuenosAires = calculateDistanceToBuenosAires(ipInfoResponse.getLatitude(), ipInfoResponse.getLongitude());
         ipInfoResponse.setDistanceToBuenosAires(distanceToBuenosAires);
-        String currencyExchangeRate = fetchCurrencyExchangeRate(currencyInfoResponse.getCurrency().toLowerCase());
+        String currencyExchangeRate = geolocalizationApiCallCacheService.fetchCurrencyExchangeRate(currencyInfoResponse.getCurrency().toLowerCase());
         String formattedLanguages = formatLanguages(ipInfoResponse);
         String currentDateTime = formatCurrentDateTime();
 
@@ -73,60 +67,12 @@ public class GeolocalizationServiceImpl implements GeolocalizationService {
 
         double maxDistance = queries.stream().mapToDouble(IpQuery::getDistanceToBuenosAires).max().orElse(0);
         double minDistance = queries.stream().mapToDouble(IpQuery::getDistanceToBuenosAires).min().orElse(0);
-        double averageDistance = queries.stream().mapToDouble(IpQuery::getDistanceToBuenosAires).average().orElse(0);
+        double totalDistance = queries.stream().mapToDouble(IpQuery::getTotalDistance).sum();
+        long totalInvocations = queries.stream().mapToLong(IpQuery::getInvocationCount).sum();
+
+        double averageDistance = totalInvocations > 0 ? totalDistance / totalInvocations : 0;
 
         return new StatisticsResponse(maxDistance, minDistance, averageDistance);
-    }
-
-    /**
-     * Fetches geolocation information for a given IP address.
-     *
-     * @param ip the IP address to fetch geolocation information for.
-     * @return an IpInfoResponse object containing geolocation details.
-     */
-    private IpInfoResponse fetchIpInfo(String ip) {
-        Map<String, String> uriVariables = new HashMap<>();
-        uriVariables.put("ip", ip);
-        return restTemplate.getForObject(IP_API_URL, IpInfoResponse.class, uriVariables);
-    }
-
-    /**
-     * Fetches timezone information for a given IP address.
-     *
-     * @param ip the IP address to fetch timezone information for.
-     * @return a TimeZoneInfoResponse object containing timezone details.
-     */
-    private TimeZoneInfoResponse fetchTimeZoneInfo(String ip) {
-        Map<String, String> uriVariables = new HashMap<>();
-        uriVariables.put("ip", ip);
-        return restTemplate.getForObject(TIMEZONE_API_URL, TimeZoneInfoResponse.class, uriVariables);
-    }
-
-    /**
-     * Fetches currency information for a given IP address.
-     *
-     * @param ip the IP address to fetch currency information for.
-     * @return a CurrencyInfoResponse object containing currency details.
-     */
-    private CurrencyInfoResponse fetchCurrencyInfo(String ip) {
-        Map<String, String> uriVariables = new HashMap<>();
-        uriVariables.put("ip", ip);
-        return restTemplate.getForObject(CURRENCY_API_URL, CurrencyInfoResponse.class, uriVariables);
-    }
-
-    /**
-     * Fetches the exchange rate of the given currency to USD.
-     *
-     * @param currency the currency code to fetch the exchange rate for.
-     * @return the exchange rate as a String, or "N/A" if not available.
-     */
-    private String fetchCurrencyExchangeRate(String currency) {
-        String currentDate = LocalDate.now().toString();
-        String url = String.format(CURRENCY_API_FORMAT, currentDate, currency);
-        Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-
-        Map<String, Object> rates = (Map<String, Object>) response.get(currency);
-        return (rates != null && rates.containsKey("usd")) ? rates.get("usd").toString() : "N/A";
     }
 
     /**
@@ -161,16 +107,19 @@ public class GeolocalizationServiceImpl implements GeolocalizationService {
      * @param currencyExchangeRate the currency exchange rate.
      * @param languages the formatted languages.
      */
+    @Transactional
     private void saveIpQuery(String ip, IpInfoResponse ipInfoResponse, TimeZoneInfoResponse timeZoneResponse, CurrencyInfoResponse currencyResponse, String currencyExchangeRate, String languages) {
-        // Buscar si ya existe un registro con la misma IP
         IpQuery ipQuery = ipQueryRepository.findByIp(ip);
 
         if (ipQuery == null) {
             // Si no existe, creamos una nueva instancia de IpQuery
             ipQuery = new IpQuery();
+            ipQuery.setInvocationCount(0);
+            ipQuery.setTotalDistance(0);
+
         }
 
-        // En ambos casos, rellenamos el objeto IpQuery
+        // Actualizar los valores no relacionados con las estadísticas
         ipQuery.setIp(ip);
         ipQuery.setFormattedDateTime(formatCurrentDateTime());
         ipQuery.setCountryName(ipInfoResponse.getCountryName());
@@ -188,6 +137,9 @@ public class GeolocalizationServiceImpl implements GeolocalizationService {
 
         // Guardar o actualizar el registro
         ipQueryRepository.save(ipQuery);
+
+        // Usar el repositorio personalizado para incrementar de manera atómica
+        ipQueryCustomRepository.incrementInvocationCountAndDistance(ip, ipInfoResponse.getDistanceToBuenosAires());
     }
 
     /**

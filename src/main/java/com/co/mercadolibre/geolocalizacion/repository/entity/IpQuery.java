@@ -24,4 +24,6 @@ public class IpQuery {
     private double longitude;          // Longitud de la IP
     private double buenosAiresLatitude;  // Coordenadas de Buenos Aires
     private double buenosAiresLongitude;
+    private long invocationCount;  // Número total de invocaciones
+    private double totalDistance;
 }
