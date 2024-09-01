@@ -15,6 +15,9 @@ docker run -p 8080:8080 geolocalization-api
 >   ## Requisitos del Proyecto
 [GeolocalizaciondeIPs.pdf](doc/GeolocalizaciondeIPs.pdf)
 
+>   ## Diagrama Arquitectura General
+![Diagrama_Arquitectura_General.png](doc%2FDiagrama_Arquitectura_General.png)
+
 >   ## Descripción de la Arquitectura de la Aplicación de Geolocalización
 
 La aplicación de geolocalización sigue una arquitectura en capas claramente definida, lo cual es un patrón de diseño común y ampliamente adoptado en aplicaciones empresariales que buscan mantener una separación clara de responsabilidades y facilitar la mantenibilidad y escalabilidad del código. A continuación se describen las principales capas y patrones de diseño implementados en esta aplicación:
