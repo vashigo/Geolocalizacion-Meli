@@ -94,6 +94,13 @@ Para implementar el método calculateDistanceToBuenosAires, que calcula la dista
 3. **Fórmula Haversine:** Esta fórmula se usa para calcular la distancia sobre la superficie de la Tierra utilizando la trigonometría esférica.
 4. **Distancia en kilómetros:** Multiplicamos el resultado por el radio de la Tierra para obtener la distancia en kilómetros.
 
+>   ## Servicios usados externos a tener en consideracion
+* [ipapi version free](https://ipapi.com/) Para obtener la mayoria de informacion me toco usar esta api que tiene una limirtacion free de 100 llamados, actualmente tiene 99 llamados gratis para tenerlo en cuenta.
+* [api TimeZone](https://timeapi.io/) Para Obtener la hora exacta de con su zona horaria correspondiente (UTC) de la ip.
+* [ipapi co](https://ipapi.co) Para obtener la informacion de la moneda local de la ip correspondiente.
+* [Free Currency Exchange Rates API](https://github.com/fawazahmed0/exchange-api) Para obtener la tasa de cambio correspondiente la moneda local de la ip respectiva.
+
+
 # Built con
 
 * [Maven](https://maven.apache.org/) - Dependency Management
