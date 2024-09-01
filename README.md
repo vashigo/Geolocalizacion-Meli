@@ -1,15 +1,15 @@
 # Geolocalizacion-Meli
 
->   ## Documentacion (API)
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
 >   ## Empezar (docker)
 
 ```
 docker build -t geolocalization-api .
 docker run -p 8080:8080 geolocalization-api
+```
+
+>   ## Documentacion (API-REST)
+```
+http://localhost:8080/swagger-ui/index.html
 ```
 
 >   ## Requisitos del Proyecto
